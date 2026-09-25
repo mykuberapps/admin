@@ -35,7 +35,7 @@
   "overrides": {
     "react-simple-maps": {
       "react": "$react",
-      "react-dom": "$react-dom"
+      "react-dom": "$react-dom" 
     }
   }
 }
