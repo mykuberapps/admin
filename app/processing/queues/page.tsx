@@ -10,6 +10,7 @@ import {
   FileCode, Play, Copy, Check, Filter, Search, CloudUpload
 } from "lucide-react";
 import { useToast } from "@/components/toast-provider";
+import { getApiUrl, getAdminHeaders } from "@/utils/api";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -52,17 +53,7 @@ export default function QueuesDashboard() {
   const [isActionInProgress, setIsActionInProgress] = useState(false);
   const [copied, setCopied] = useState(false);
   const intervalRef = useRef<any>(null);
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
-
-  const getAdminHeaders = useCallback(() => {
-    const adminKey = typeof window !== 'undefined'
-      ? (localStorage.getItem('admin_api_key') || process.env.NEXT_PUBLIC_ADMIN_API_KEY || 'kuber_admin_secret_key_2026')
-      : (process.env.NEXT_PUBLIC_ADMIN_API_KEY || 'kuber_admin_secret_key_2026');
-    return {
-      'Content-Type': 'application/json',
-      'X-Admin-API-Key': adminKey
-    };
-  }, []);
+  const apiUrl = getApiUrl();
 
   const fetchData = useCallback(async (showSyncing = false) => {
     if (showSyncing) setSyncing(true);

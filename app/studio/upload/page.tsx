@@ -4,6 +4,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useState, Suspense, useCallback } from "react";
 import UploadManager from "@/components/UploadManager";
 import { useToast } from "@/components/toast-provider";
+import { getApiUrl, getAdminHeaders } from "@/utils/api";
 import {
   UploadCloud, FileEdit, ArrowLeft, Activity, Database, Sparkles,
   Radio, Layers, RefreshCw, Play, CheckCircle2, AlertTriangle,
@@ -37,23 +38,8 @@ function IngestionCenterContent() {
   const [manifestStatusFilter, setManifestStatusFilter] = useState("ALL");
   const [manifestTypeFilter, setManifestTypeFilter] = useState("ALL");
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
-
-  const getAuthHeaders = () => {
-    const token = typeof window !== "undefined"
-      ? (localStorage.getItem("admin_token") || localStorage.getItem("token") || "")
-      : "";
-    const adminKey = typeof window !== "undefined"
-      ? (localStorage.getItem("admin_api_key") || process.env.NEXT_PUBLIC_ADMIN_API_KEY || "kuber_admin_secret_key_2026")
-      : "kuber_admin_secret_key_2026";
-    return {
-      "Content-Type": "application/json",
-      "x-admin-api-key": adminKey,
-      "x-admin-key": adminKey,
-      "X-Admin-API-Key": adminKey,
-      ...(token ? { "Authorization": `Bearer ${token}` } : {})
-    };
-  };
+  const apiUrl = getApiUrl();
+  const getAuthHeaders = getAdminHeaders;
 
   // Sync tab from URL if changed
   useEffect(() => {

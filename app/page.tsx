@@ -9,6 +9,7 @@ import {
   Cpu, Activity, Plus, ChevronRight, BarChart2, Eye
 } from "lucide-react";
 import { useToast } from "@/components/toast-provider";
+import { getApiUrl, getAdminHeaders } from "@/utils/api";
 
 interface PlatformStats {
   users: { total: number; newThisWeek: number };
@@ -69,17 +70,18 @@ export default function DashboardPage() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const { showToast } = useToast();
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+  const apiUrl = getApiUrl();
 
   const fetchDashboardData = useCallback(async (isManual = false) => {
     if (isManual) setRefreshing(true);
     try {
+      const headers = getAdminHeaders();
       const [statsRes, queueRes, healthRes, jobsRes, mediaRes] = await Promise.all([
-        fetch(`${apiUrl}/admin/stats`).then(r => r.json()).catch(() => null),
-        fetch(`${apiUrl}/admin/videos/queues/stats`).then(r => r.json()).catch(() => null),
-        fetch(`${apiUrl}/admin/media-health`).then(r => r.json()).catch(() => null),
-        fetch(`${apiUrl}/admin/videos/jobs`).then(r => r.json()).catch(() => null),
-        fetch(`${apiUrl}/admin/videos`).then(r => r.json()).catch(() => null),
+        fetch(`${apiUrl}/admin/stats`, { headers }).then(r => r.json()).catch(() => null),
+        fetch(`${apiUrl}/admin/videos/queues/stats`, { headers }).then(r => r.json()).catch(() => null),
+        fetch(`${apiUrl}/admin/media-health`, { headers }).then(r => r.json()).catch(() => null),
+        fetch(`${apiUrl}/admin/videos/jobs`, { headers }).then(r => r.json()).catch(() => null),
+        fetch(`${apiUrl}/admin/videos`, { headers }).then(r => r.json()).catch(() => null),
       ]);
 
       if (statsRes?.success) setStats(statsRes.data);

@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/components/toast-provider";
 import { useUpload } from "@/components/UploadProvider";
+import { getApiUrl, getAdminHeaders } from "@/utils/api";
 
 interface TranscodingJob {
   id: string;
@@ -40,17 +41,7 @@ export default function ProcessingPanel() {
   const [selectedJob, setSelectedJob] = useState<TranscodingJob | null>(null);
   const [isActionInProgress, setIsActionInProgress] = useState(false);
   const [copied, setCopied] = useState(false);
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
-
-  const getAdminHeaders = () => {
-    const adminKey = typeof window !== 'undefined'
-      ? (localStorage.getItem('admin_api_key') || process.env.NEXT_PUBLIC_ADMIN_API_KEY || 'kuber_admin_secret_key_2026')
-      : (process.env.NEXT_PUBLIC_ADMIN_API_KEY || 'kuber_admin_secret_key_2026');
-    return {
-      'Content-Type': 'application/json',
-      'X-Admin-API-Key': adminKey
-    };
-  };
+  const apiUrl = getApiUrl();
 
   const fetchJobs = async (silent = false) => {
     if (!silent) setLoading(true);

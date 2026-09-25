@@ -12,6 +12,7 @@ import {
   ShieldCheck, AlertCircle, Info, ChevronRight
 } from "lucide-react";
 import { useToast } from "@/components/toast-provider";
+import { getApiUrl, getAdminHeaders } from "@/utils/api";
 
 interface MediaHealthStats {
   totalSize: number;
@@ -40,17 +41,7 @@ export default function MediaStoragePage() {
   const [quarantineHours, setQuarantineHours] = useState<number>(24);
   const [showPurgeModal, setShowPurgeModal] = useState(false);
   
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
-
-  const getAdminHeaders = useCallback(() => {
-    const adminKey = typeof window !== 'undefined'
-      ? (localStorage.getItem('admin_api_key') || process.env.NEXT_PUBLIC_ADMIN_API_KEY || 'kuber_admin_secret_key_2026')
-      : (process.env.NEXT_PUBLIC_ADMIN_API_KEY || 'kuber_admin_secret_key_2026');
-    return {
-      'Content-Type': 'application/json',
-      'X-Admin-API-Key': adminKey
-    };
-  }, []);
+  const apiUrl = getApiUrl();
 
   const fetchHealth = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);

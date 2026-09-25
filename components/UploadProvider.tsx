@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useToast } from './toast-provider';
+import { getApiUrl, getAdminHeaders as getSharedAdminHeaders } from "@/utils/api";
 
 export interface UploadTask {
   id: string;
@@ -64,23 +65,12 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [isWidgetHidden, setWidgetHidden] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const { showToast } = useToast();
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+  const apiUrl = getApiUrl();
   const activeIntervals = useRef<Record<string, any>>({});
   const activeXhrs = useRef<Record<string, XMLHttpRequest>>({});
 
   const getAdminHeaders = useCallback(() => {
-    const adminKey = typeof window !== 'undefined' 
-      ? (localStorage.getItem('admin_api_key') || process.env.NEXT_PUBLIC_ADMIN_API_KEY || 'kuber_admin_secret_key_2026')
-      : (process.env.NEXT_PUBLIC_ADMIN_API_KEY || 'kuber_admin_secret_key_2026');
-    const adminUsername = typeof window !== 'undefined'
-      ? (localStorage.getItem('admin_api_username') || 'Administrator')
-      : 'Administrator';
-
-    return {
-      'Content-Type': 'application/json',
-      'X-Admin-API-Key': adminKey,
-      'X-Admin-Username': adminUsername
-    };
+    return getSharedAdminHeaders();
   }, []);
 
   useEffect(() => {

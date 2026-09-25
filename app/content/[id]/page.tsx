@@ -14,6 +14,7 @@ import {
 import { useRouter, useParams } from "next/navigation";
 import { useToast } from "@/components/toast-provider";
 import { getLanguageName } from "@/app/utils/language";
+import { getApiUrl, getAdminHeaders } from "@/utils/api";
 
 interface Episode {
   id?: string;
@@ -103,22 +104,7 @@ export default function ContentDetailPage() {
   const [purgeInput, setPurgeInput] = useState("");
   const [isPurging, setIsPurging] = useState(false);
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
-
-  const getAdminHeaders = () => {
-    const adminKey = typeof window !== 'undefined'
-      ? (localStorage.getItem('admin_api_key') || process.env.NEXT_PUBLIC_ADMIN_API_KEY || 'kuber_admin_secret_key_2026')
-      : 'kuber_admin_secret_key_2026';
-    const token = typeof window !== 'undefined'
-      ? (localStorage.getItem('admin_token') || localStorage.getItem('token') || '')
-      : '';
-    return {
-      'Content-Type': 'application/json',
-      'X-Admin-API-Key': adminKey,
-      'x-admin-api-key': adminKey,
-      ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-    };
-  };
+  const apiUrl = getApiUrl();
 
   const fetchDetail = async () => {
     try {

@@ -7,6 +7,7 @@ import {
   Activity, Eye, EyeOff, Sparkles, CheckCircle2 
 } from "lucide-react";
 import { useToast } from "@/components/toast-provider";
+import { getApiUrl } from "@/utils/api";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
@@ -17,7 +18,7 @@ export default function LoginPage() {
   const router = useRouter();
   const { showToast } = useToast();
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+  const apiUrl = getApiUrl();
 
   // Check if already authenticated with a valid key
   useEffect(() => {

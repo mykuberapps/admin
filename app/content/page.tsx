@@ -11,6 +11,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/toast-provider";
 import UploadManager from "@/components/UploadManager";
+import { getApiUrl, getAdminHeaders } from "@/utils/api";
 
 interface Episode {
   id?: string;
@@ -70,14 +71,16 @@ export default function UnifiedContentPage() {
   const [showUpload, setShowUpload] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+  const apiUrl = getApiUrl();
 
   const fetchContent = async (isManualRefresh = false) => {
     if (isManualRefresh) setRefreshing(true);
     else setLoading(true);
 
     try {
-      const res = await fetch(`${apiUrl}/admin/videos`);
+      const res = await fetch(`${apiUrl}/admin/videos`, {
+        headers: getAdminHeaders()
+      });
       const data = await res.json();
       if (data.success && Array.isArray(data.data)) {
         setContent(data.data);
