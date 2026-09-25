@@ -298,15 +298,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {/* Environment Status & Identity */}
           <div className="flex items-center gap-5">
             
-            {/* System Alerts */}
+            {/* Background Uploads Indicator */}
             {isWidgetHidden && activeTasks.length > 0 && (
               <button 
                 onClick={() => setWidgetHidden(false)}
-                className="relative p-1.5 rounded text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors border border-transparent hover:border-gray-200"
-                title="Active Uploads"
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 transition-all font-mono text-[11px] font-medium shadow-2xs"
+                title="Click to restore background uploads panel"
               >
-                <CloudUpload size={14} className="text-blue-600" />
-                <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-blue-500 animate-ping" />
+                <CloudUpload size={13} className="text-blue-600 shrink-0 animate-bounce" />
+                <span>{activeTasks.length} Uploading</span>
               </button>
             )}
             <button className="relative p-1.5 rounded text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors border border-transparent hover:border-gray-200">

@@ -19,6 +19,7 @@ interface UploadContextType {
   tasks: UploadTask[];
   addTask: (params: any) => Promise<void>;
   removeTask: (id: string) => void;
+  cancelTask: (id: string) => Promise<void>;
   isIdle: boolean;
   isWidgetHidden: boolean;
   setWidgetHidden: (hidden: boolean) => void;
@@ -123,7 +124,18 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setTasks(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
   }, []);
 
+  // removeTask removes a task from the list/notification view.
+  // CRITICAL: It does NOT abort background uploads! The transfer continues safely in the background.
   const removeTask = (id: string) => {
+    if (activeIntervals.current[id]) {
+      clearInterval(activeIntervals.current[id]);
+      delete activeIntervals.current[id];
+    }
+    setTasks(prev => prev.filter(t => t.id !== id));
+  };
+
+  // cancelTask explicitly cancels an active upload when the user confirms cancellation.
+  const cancelTask = async (id: string) => {
     if (activeIntervals.current[id]) {
       clearInterval(activeIntervals.current[id]);
       delete activeIntervals.current[id];
@@ -134,7 +146,22 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       } catch (e) {}
       delete activeXhrs.current[id];
     }
-    setTasks(prev => prev.filter(t => t.id !== id));
+    const task = tasks.find(t => t.id === id);
+    const targetId = task?.mediaId || id;
+    if (targetId) {
+      try {
+        await fetch(`${apiUrl}/admin/videos/${targetId}/fail-upload`, {
+          method: 'POST',
+          headers: getAdminHeaders(),
+          body: JSON.stringify({ error: 'Upload cancelled by administrator.' })
+        });
+      } catch (e) {}
+    }
+    updateTask(id, {
+      status: 'FAILED',
+      error: 'Upload cancelled by administrator. You can re-upload the master video in Ingestion Studio.'
+    });
+    showToast(`Upload cancelled: ${task?.title || 'Entity'}`, "info");
   };
 
   const resumeTranscodingPoll = (taskId: string, mediaId: string) => {
@@ -224,6 +251,11 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         reject(new Error(`Transport error uploading to S3 (status: ${xhr.status})`));
       };
 
+      xhr.onabort = () => {
+        if (taskId) delete activeXhrs.current[taskId];
+        reject(new Error(`Upload cancelled by administrator.`));
+      };
+
       xhr.send(file);
     });
   };
@@ -294,7 +326,8 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       // 1. Upload Visual Assets
       if (poster?.file) {
         const posterUrl = await uploadToS3(poster.file, 'POSTER', (p) => 
-          updateTask(taskId, { progress: p, overallProgress: 5 + (p * 0.04) })
+          updateTask(taskId, { progress: p, overallProgress: 5 + (p * 0.04) }),
+          taskId
         );
         await fetch(`${apiUrl}/admin/videos/${mediaId}/assets`, { 
           method: 'PATCH', 
@@ -305,7 +338,8 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       
       if (backdrop?.file) {
         const backdropUrl = await uploadToS3(backdrop.file, 'BACKDROP', (p) => 
-          updateTask(taskId, { progress: p, overallProgress: 9 + (p * 0.04) })
+          updateTask(taskId, { progress: p, overallProgress: 9 + (p * 0.04) }),
+          taskId
         );
         await fetch(`${apiUrl}/admin/videos/${mediaId}/assets`, { 
           method: 'PATCH', 
@@ -320,7 +354,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (pendingSubs.length > 0) {
           const uploadedSubs: any[] = [];
           for (const sub of pendingSubs) {
-            const subUrl = await uploadToS3(sub.file, 'SUBTITLE', () => {});
+            const subUrl = await uploadToS3(sub.file, 'SUBTITLE', () => {}, taskId);
             uploadedSubs.push({
               name: sub.name || sub.lang || 'Subtitle',
               language: sub.lang || 'en',
@@ -339,7 +373,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (pendingAudios.length > 0) {
           const uploadedAudios: any[] = [];
           for (const aud of pendingAudios) {
-            const audUrl = await uploadToS3(aud.file, 'AUDIO', () => {});
+            const audUrl = await uploadToS3(aud.file, 'AUDIO', () => {}, taskId);
             uploadedAudios.push({
               name: aud.name || aud.lang || 'Audio Track',
               language: aud.lang || 'hi',
@@ -374,7 +408,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
           // Episode Thumbnail
           if (ep.thumbnailFile) {
-            const thumbUrl = await uploadToS3(ep.thumbnailFile, 'THUMBNAIL', () => {});
+            const thumbUrl = await uploadToS3(ep.thumbnailFile, 'THUMBNAIL', () => {}, taskId);
             await fetch(`${apiUrl}/admin/videos/${mediaId}/assets`, {
               method: 'PATCH',
               headers: getAdminHeaders(),
@@ -387,7 +421,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           if (pendingEpSubs.length > 0) {
             const uploadedSubs: any[] = [];
             for (const sub of pendingEpSubs) {
-              const subUrl = await uploadToS3(sub.file, 'SUBTITLE', () => {});
+              const subUrl = await uploadToS3(sub.file, 'SUBTITLE', () => {}, taskId);
               uploadedSubs.push({
                 name: sub.name || sub.lang || 'Subtitle',
                 language: sub.lang || 'en',
@@ -410,7 +444,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 progress: p, 
                 overallProgress: 15 + (i * episodeSlice) + (p * 0.01 * episodeSlice) 
               });
-            });
+            }, taskId);
             await fetch(`${apiUrl}/admin/videos/${mediaId}/assets`, { 
               method: 'PATCH', 
               headers: getAdminHeaders(), 
@@ -473,7 +507,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   return (
-    <UploadContext.Provider value={{ tasks, addTask, removeTask, isIdle: tasks.length === 0, isWidgetHidden, setWidgetHidden }}>
+    <UploadContext.Provider value={{ tasks, addTask, removeTask, cancelTask, isIdle: tasks.length === 0, isWidgetHidden, setWidgetHidden }}>
       {children}
     </UploadContext.Provider>
   );

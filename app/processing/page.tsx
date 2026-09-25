@@ -71,6 +71,12 @@ export default function ProcessingPanel() {
   };
 
   const handleAction = async (id: string, action: 'retry' | 'delete') => {
+    const targetJob = jobs.find(j => j.id === id) || (selectedJob?.id === id ? selectedJob : null);
+    if (action === 'retry' && (targetJob?.error?.includes('Master URL not found') || targetJob?.status === 'UPLOAD_PENDING')) {
+      showToast("Cannot retry transcode: Master video file has not been uploaded to S3 yet. Please upload it via Ingestion Studio.", "error");
+      return;
+    }
+
     setIsActionInProgress(true);
     try {
       const res = await fetch(`${apiUrl}/admin/videos/jobs/${id}${action === 'retry' ? '/retry' : ''}`, {
@@ -85,7 +91,8 @@ export default function ProcessingPanel() {
         }
         await fetchJobs(true);
       } else {
-        showToast(`Action failed with status ${res.status}`, "error");
+        const errJson = await res.json().catch(() => null);
+        showToast(errJson?.message || `Action failed with status ${res.status}`, "error");
       }
     } catch (err) {
       showToast("Network fault during job action", "error");
@@ -528,14 +535,24 @@ export default function ProcessingPanel() {
                         {/* Actions */}
                         <td className="px-5 py-3.5 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center justify-end gap-1.5">
-                            <button
-                              onClick={() => handleAction(job.id, 'retry')}
-                              disabled={isActionInProgress}
-                              className="px-2.5 py-1 text-[11px] font-semibold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/60 rounded-md transition-colors flex items-center gap-1 shadow-2xs"
-                              title="Requeue Job"
-                            >
-                              <RotateCw size={11} /> Retry
-                            </button>
+                            {job.error?.includes('Master URL not found') ? (
+                              <Link
+                                href={`/studio/upload?id=${job.mediaId}&tab=studio`}
+                                className="px-2.5 py-1 text-[11px] font-semibold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-md transition-colors flex items-center gap-1 shadow-2xs"
+                                title="Master video missing. Re-upload video file in Ingestion Studio."
+                              >
+                                <CloudUpload size={11} /> Re-upload Source
+                              </Link>
+                            ) : (
+                              <button
+                                onClick={() => handleAction(job.id, 'retry')}
+                                disabled={isActionInProgress}
+                                className="px-2.5 py-1 text-[11px] font-semibold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/60 rounded-md transition-colors flex items-center gap-1 shadow-2xs disabled:opacity-50"
+                                title="Requeue Job"
+                              >
+                                <RotateCw size={11} /> Retry
+                              </button>
+                            )}
                             <button
                               onClick={() => handleAction(job.id, 'delete')}
                               disabled={isActionInProgress}
@@ -702,14 +719,24 @@ export default function ProcessingPanel() {
               ) : <div />}
 
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handleAction(selectedJob.id, 'retry')}
-                  disabled={isActionInProgress}
-                  className="px-3.5 py-1.5 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors flex items-center gap-1.5 shadow-xs disabled:opacity-50"
-                >
-                  <RotateCw size={13} className={isActionInProgress ? "animate-spin" : ""} />
-                  Re-queue Transcoding
-                </button>
+                {selectedJob.error?.includes('Master URL not found') ? (
+                  <Link
+                    href={`/studio/upload?id=${selectedJob.mediaId}&tab=studio`}
+                    className="px-3.5 py-1.5 text-xs font-semibold bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors flex items-center gap-1.5 shadow-xs"
+                  >
+                    <CloudUpload size={13} />
+                    Re-upload Source in Studio
+                  </Link>
+                ) : (
+                  <button
+                    onClick={() => handleAction(selectedJob.id, 'retry')}
+                    disabled={isActionInProgress}
+                    className="px-3.5 py-1.5 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors flex items-center gap-1.5 shadow-xs disabled:opacity-50"
+                  >
+                    <RotateCw size={13} className={isActionInProgress ? "animate-spin" : ""} />
+                    Re-queue Transcoding
+                  </button>
+                )}
                 <button
                   onClick={() => handleAction(selectedJob.id, 'delete')}
                   disabled={isActionInProgress}

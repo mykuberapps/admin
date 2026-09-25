@@ -7,7 +7,7 @@ import {
   Database, RotateCw, AlertCircle, CheckCircle2,
   Clock, Zap, ChevronRight, X, Layers,
   ExternalLink, Terminal, HardDrive, AlertTriangle,
-  FileCode, Play, Copy, Check, Filter, Search
+  FileCode, Play, Copy, Check, Filter, Search, CloudUpload
 } from "lucide-react";
 import { useToast } from "@/components/toast-provider";
 
@@ -98,6 +98,12 @@ export default function QueuesDashboard() {
   }, [fetchData]);
 
   const handleAction = async (jobId: string, action: 'retry' | 'delete') => {
+    const target = jobs.find(j => j.id === jobId) || (selectedJob?.id === jobId ? selectedJob : null);
+    if (action === 'retry' && target?.failedReason?.includes('Master URL not found')) {
+      showToast("Cannot retry: Source video was not uploaded to S3. Please upload it in Ingestion Studio.", "error");
+      return;
+    }
+
     setIsActionInProgress(true);
     try {
       const url = `${apiUrl}/admin/videos/queues/jobs/${jobId}${action === 'retry' ? '/retry' : ''}`;
@@ -112,7 +118,8 @@ export default function QueuesDashboard() {
         }
         await fetchData();
       } else {
-        showToast(`Action failed with status ${res.status}`, "error");
+        const errJson = await res.json().catch(() => null);
+        showToast(errJson?.message || `Action failed with status ${res.status}`, "error");
       }
     } catch {
       showToast(`Network fault during ${action}`, "error");
@@ -458,14 +465,24 @@ export default function QueuesDashboard() {
                       <td className="px-5 py-3.5 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1.5">
                           {filter === 'failed' && (
-                            <button
-                              onClick={() => handleAction(job.id, 'retry')}
-                              disabled={isActionInProgress}
-                              className="px-2.5 py-1 text-[11px] font-semibold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-md transition-colors flex items-center gap-1 shadow-2xs"
-                              title="Re-enqueue in BullMQ"
-                            >
-                              <RotateCw size={11} /> Retry
-                            </button>
+                            job.failedReason?.includes('Master URL not found') ? (
+                              <Link
+                                href={`/studio/upload?id=${job.data?.mediaId || ''}&tab=studio`}
+                                className="px-2.5 py-1 text-[11px] font-semibold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-md transition-colors flex items-center gap-1 shadow-2xs"
+                                title="Master video missing. Re-upload video in Ingestion Studio."
+                              >
+                                <CloudUpload size={11} /> Re-upload Source
+                              </Link>
+                            ) : (
+                              <button
+                                onClick={() => handleAction(job.id, 'retry')}
+                                disabled={isActionInProgress}
+                                className="px-2.5 py-1 text-[11px] font-semibold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-md transition-colors flex items-center gap-1 shadow-2xs disabled:opacity-50"
+                                title="Re-enqueue in BullMQ"
+                              >
+                                <RotateCw size={11} /> Retry
+                              </button>
+                            )
                           )}
                           <button
                             onClick={() => handleAction(job.id, 'delete')}
@@ -625,14 +642,24 @@ export default function QueuesDashboard() {
               ) : <div />}
 
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handleAction(selectedJob.id, 'retry')}
-                  disabled={isActionInProgress}
-                  className="px-3.5 py-1.5 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors flex items-center gap-1.5 shadow-xs disabled:opacity-50"
-                >
-                  <RotateCw size={13} className={isActionInProgress ? "animate-spin" : ""} />
-                  Retry BullMQ Job
-                </button>
+                {selectedJob.failedReason?.includes('Master URL not found') ? (
+                  <Link
+                    href={`/studio/upload?id=${selectedJob.data?.mediaId || ''}&tab=studio`}
+                    className="px-3.5 py-1.5 text-xs font-semibold bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors flex items-center gap-1.5 shadow-xs"
+                  >
+                    <CloudUpload size={13} />
+                    Re-upload Source in Studio
+                  </Link>
+                ) : (
+                  <button
+                    onClick={() => handleAction(selectedJob.id, 'retry')}
+                    disabled={isActionInProgress}
+                    className="px-3.5 py-1.5 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors flex items-center gap-1.5 shadow-xs disabled:opacity-50"
+                  >
+                    <RotateCw size={13} className={isActionInProgress ? "animate-spin" : ""} />
+                    Retry BullMQ Job
+                  </button>
+                )}
                 <button
                   onClick={() => handleAction(selectedJob.id, 'delete')}
                   disabled={isActionInProgress}
