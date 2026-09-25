@@ -29,22 +29,42 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    let key = localStorage.getItem("admin_api_key");
-    let username = localStorage.getItem("admin_api_username");
+    const key = localStorage.getItem("admin_api_key");
+    const username = localStorage.getItem("admin_api_username");
+
     if (!key) {
-      const defaultKey = process.env.NEXT_PUBLIC_ADMIN_API_KEY || "kuber_admin_secret_key_2026";
-      localStorage.setItem("admin_api_key", defaultKey);
-      localStorage.setItem("admin_api_username", "Administrator");
-      key = defaultKey;
-      username = "Administrator";
+      setAuthorized(false);
+      router.replace("/login");
+      return;
     }
-    
-    setAuthorized(true);
-    if (username) {
-      setAdminUsername(username);
-      setAdminInitials(username.slice(0, 2).toUpperCase());
-    }
-  }, [pathname, router]);
+
+    // Verify session validity with backend
+    fetch(`${apiUrl}/admin/system-settings`, {
+      headers: { "X-Admin-API-Key": key }
+    })
+      .then((res) => {
+        if (!res.ok) {
+          localStorage.removeItem("admin_api_key");
+          localStorage.removeItem("admin_api_username");
+          setAuthorized(false);
+          router.replace("/login");
+        } else {
+          setAuthorized(true);
+          if (username) {
+            setAdminUsername(username);
+            setAdminInitials(username.slice(0, 2).toUpperCase());
+          }
+        }
+      })
+      .catch(() => {
+        // In case of transient network failure, permit if local token is present
+        setAuthorized(true);
+        if (username) {
+          setAdminUsername(username);
+          setAdminInitials(username.slice(0, 2).toUpperCase());
+        }
+      });
+  }, [pathname, router, apiUrl]);
 
   React.useEffect(() => {
     if (typeof window !== "undefined" && !(window.fetch as any).__patched) {
@@ -61,7 +81,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           urlStr = (input as any).url;
         }
 
-        const effectiveAdminKey = localStorage.getItem("admin_api_key") || process.env.NEXT_PUBLIC_ADMIN_API_KEY || "kuber_admin_secret_key_2026";
+        const effectiveAdminKey = localStorage.getItem("admin_api_key") || "";
         
         if (urlStr.includes("/admin/")) {
           const headersObj: Record<string, string> = {};
@@ -84,7 +104,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           if (!hasKey && effectiveAdminKey) {
             headersObj["X-Admin-API-Key"] = effectiveAdminKey;
           }
-          const adminUsername = localStorage.getItem("admin_api_username") || "Administrator";
+          const adminUsername = localStorage.getItem("admin_api_username");
           if (adminUsername) {
             headersObj["X-Admin-Username"] = adminUsername;
           }
@@ -109,8 +129,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         }
 
         const response = await originalFetch(finalInput, newInit);
-        // Only redirect to /login on explicit security endpoint failures, never on content/media 401s
-        if (response.status === 401 && urlStr.includes("/admin/security/")) {
+        // If server returns 401 Unauthorized for admin endpoints, revoke local session and redirect to /login
+        if (response.status === 401 && urlStr.includes("/admin/") && !urlStr.includes("/login")) {
           localStorage.removeItem("admin_api_key");
           localStorage.removeItem("admin_api_username");
           if (typeof window !== "undefined" && window.location.pathname !== "/login") {
