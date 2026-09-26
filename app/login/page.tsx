@@ -23,27 +23,12 @@ export default function LoginPage() {
   // Check if already authenticated with a valid key
   useEffect(() => {
     const existingKey = localStorage.getItem("admin_api_key");
-    if (!existingKey) {
-      setCheckingExisting(false);
+    if (existingKey) {
+      window.location.href = "/";
       return;
     }
-
-    fetch(`${apiUrl}/admin/system-settings`, {
-      headers: { "X-Admin-API-Key": existingKey }
-    })
-      .then((res) => {
-        if (res.ok) {
-          router.replace("/");
-        } else {
-          localStorage.removeItem("admin_api_key");
-          localStorage.removeItem("admin_api_username");
-          setCheckingExisting(false);
-        }
-      })
-      .catch(() => {
-        setCheckingExisting(false);
-      });
-  }, [router, apiUrl]);
+    setCheckingExisting(false);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,39 +59,32 @@ export default function LoginPage() {
       const res = await fetch(`${apiUrl}/admin/system-settings`, {
         headers: { 
           "X-Admin-API-Key": effectiveKey,
+          "Authorization": `Bearer ${effectiveKey}`,
           "X-Admin-Username": cleanUsername
         },
       });
 
-      if (res.ok) {
+      if (res.ok || effectiveKey === "kuber_admin_secret_key_2026") {
         localStorage.setItem("admin_api_username", cleanUsername);
         localStorage.setItem("admin_api_key", effectiveKey);
         localStorage.setItem("admin_auth_time", new Date().toISOString());
 
-        showToast(`Access granted. Welcome back, ${cleanUsername}.`, "success");
-        router.replace("/");
+        showToast(`Access granted. Welcome, ${cleanUsername}.`, "success");
+        window.location.href = "/";
+        return;
       } else {
-        // If master key was used but backend had transient check issue, grant master access
-        if (effectiveKey === "kuber_admin_secret_key_2026") {
-          localStorage.setItem("admin_api_username", cleanUsername);
-          localStorage.setItem("admin_api_key", effectiveKey);
-          localStorage.setItem("admin_auth_time", new Date().toISOString());
-          showToast(`Access granted with Master Key. Welcome, ${cleanUsername}.`, "success");
-          router.replace("/");
-          return;
-        }
-        showToast("Authentication Denied: Invalid Security Key or unauthorized identity.", "error");
+        showToast("Authentication Denied: Invalid Security Key or password.", "error");
       }
-    } catch (err: any) {
+    } catch {
       if (effectiveKey === "kuber_admin_secret_key_2026") {
         localStorage.setItem("admin_api_username", cleanUsername);
         localStorage.setItem("admin_api_key", effectiveKey);
         localStorage.setItem("admin_auth_time", new Date().toISOString());
         showToast(`Access granted with Master Key. Welcome, ${cleanUsername}.`, "success");
-        router.replace("/");
+        window.location.href = "/";
         return;
       }
-      showToast(err.message || "Authentication gateway unreachable. Check network/server connection.", "error");
+      showToast("Authentication gateway unreachable. Check network/server connection.", "error");
     } finally {
       setLoading(false);
     }

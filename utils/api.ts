@@ -44,6 +44,7 @@ export function getAdminHeaders(extraHeaders?: Record<string, string>): Record<s
     "Content-Type": "application/json",
     "X-Admin-API-Key": key,
     "x-admin-api-key": key,
+    "Authorization": `Bearer ${key}`,
     "X-Admin-Username": username,
     ...(extraHeaders || {})
   };
